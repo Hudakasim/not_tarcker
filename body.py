@@ -1,4 +1,5 @@
 import time
+import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -84,18 +85,20 @@ def get_info(driver):
 	return courses_dict
 
 # Check for any updates in grades
-def check_for_updates(driver, old_courses_dict):
+def check_for_updates(driver, courses_dict):
 	message = ""
 	status = False
 
 	# Refresh the page to fetch new data
-	new_cources_dict = get_info(driver)
+	new_courses_dict = get_info(driver)
 	time.sleep(2)
 
 	# Compare old and new grades
-	for course in new_cources_dict:
-		old = old_courses_dict.get(course, [])
-		new = new_cources_dict[course]
+	for course in new_courses_dict:
+		if course not in courses_dict:
+			courses_dict[course] = []
+		old = courses_dict.get(course)
+		new = new_courses_dict[course]
 		new_grades_for_this_course = []
 
 		for sinav_turu, sinav_notu in zip(new[::2], new[1::2]):
@@ -109,4 +112,17 @@ def check_for_updates(driver, old_courses_dict):
 			message += "\n".join(new_grades_for_this_course)
 			message += "\n\n"
 
-	return message, status, old_courses_dict
+	return message, status, courses_dict
+
+# read old data from file (if exists)
+def load_old_data(filename="grades.json"):
+    try:
+        with open(filename, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+# write updated data to file
+def save_old_data(data, filename="grades.json"):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=2)

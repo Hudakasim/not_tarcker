@@ -1,0 +1,8 @@
+id : "YOUR STUDENT ID"
+password : "KBS SYS PASSWORD"
+
+token: "TELEGRAM CHATBOT TOKEN"
+chat_id: "TELEGRAM CHAT ID"
+
+url: "https://kampus.izu.edu.tr/login"
+interval: 300 # Check every 5 min
