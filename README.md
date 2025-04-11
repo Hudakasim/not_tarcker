@@ -50,7 +50,4 @@ git clone https://github.com/Hudakasim/not_tarcker.git
 <img src="bot.jpeg" width="450">
 
 ## 🤝 Acknowledgements
-💡 This project was inspired by and partially built upon code from [grade-notification-bot](https://github.com/umutkavakli/grade-notification-bot)
-
-## 👤 Author
-Made by me
+💡 This project was inspired by [umutkavakli](https://github.com/umutkavakli/grade-notification-bot)
