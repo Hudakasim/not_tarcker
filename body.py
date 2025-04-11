@@ -3,46 +3,61 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
 
-def enter_kbs(id, password, url):
-	'''  ensures that the Chrome browser window stays open even after the WebDriver object is closed '''
-	options = Options()
-	options.add_experimental_option("detach", True)
-	driver = webdriver.Chrome(options= options)
+# Log in to the student system
+def sign_in(id, password, url):
+    options = Options()
+	# Run browser in headless (invisible) mode
+    options.add_argument('--headless=new')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=1920,1080')
+
+    driver = webdriver.Chrome(options=options)
+
+	# Open login page & wait till the page load
+    driver.get(url)
+
+    wait = WebDriverWait(driver, 10)
+    username_input = wait.until(EC.element_to_be_clickable((By.NAME, "username")))
+    username_input.send_keys(id)
+
+    password_input = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
+    password_input.send_keys(password)
+    password_input.send_keys(Keys.RETURN)
+
+    time.sleep(2)
+
+    return driver
+
+# Extract information
+def get_info(driver):
+
 	actions = ActionChains(driver)
 
-	''' enter the kbs system '''
-	driver.get(url)
-
-	Username = driver.find_element(By.NAME, "username")
-	Username.send_keys(id)
-
-	password = driver.find_element(By.NAME, "password")
-	password.send_keys(password)
-	password.send_keys(Keys.RETURN)
-
-	''' enter the grade page '''
-	time.sleep(2)
+	# Go to grade page
+	actions.send_keys(Keys.PAGE_UP).perform()
 	grade_url = driver.find_element(By.LINK_TEXT, "Sınav Sonuçları")
 	grade_url.click()
 	time.sleep(2)
 
+	# Click to all "Incele" buttons to reveal details
 	incele_buttons = driver.find_elements(By.LINK_TEXT, "İncele")
 	for button in incele_buttons:
 		button.click()
 		actions.send_keys(Keys.PAGE_DOWN).perform()
 		time.sleep(1)
 
+	# Get complicated raw informatin table
 	grade_table = driver.find_element(By.CSS_SELECTOR, "table.table-striped.table-bordered.table-hover")
 	rows = grade_table.find_elements(By.TAG_NAME, "tr")
 
-	return driver, rows
-
-def get_info(rows):
-	dersler = {}  # her ders için ayrı liste tutan sözlük
-	aktif_ders = None
-
+	# Dictionary to store courses_dict and their grades
+	courses_dict = {}
+	active_course = None
+	# Extract the useful informations and add it to the dictionary
 	for row in rows:
 		columns = row.find_elements(By.TAG_NAME, "td")
 		row_data = [col.text.strip() for col in columns]
@@ -53,25 +68,45 @@ def get_info(rows):
 		if 'Detaylı Bilgi' in row_data[0]:
 			continue
 
-		# Eğer bu satır bir ders satırıysa
+		# Course row
 		if len(row_data) == 7 and 'İncele' in row_data[6]:
-			ders_adi = row_data[1]
-			aktif_ders = ders_adi
-			dersler[aktif_ders] = []  # yeni ders için boş liste oluştur
+			course_name = row_data[1]
+			active_course = course_name
+			courses_dict[active_course] = []
 
-		# Eğer not satırıysa ve bir aktif ders varsa
-		elif ('Vize 1' or "Final 1" or "Vize 2" or "Kısa Sınav 1" or "Proje 1" in row_data[0]):
-			sinav_turu = row_data[0]
-			sinav_puani = row_data[1]
-			dersler[aktif_ders].append(sinav_turu)
-			dersler[aktif_ders].append(sinav_puani)
+		# Grade row
+		elif active_course and row_data[0] in ["Vize 1", "Final 1", "Vize 2", "Kısa Sınav 1", "Proje 1"]:
+			grade_type = row_data[0]
+			grade = row_data[1]
+			courses_dict[active_course].append(grade_type)
+			courses_dict[active_course].append(grade)
 
-	for ders, notlar in dersler.items():
-		print(f"\n📘 {ders}")
-		i = 0
-		for i in range(0, len(notlar), 2):
-			sinav_adi = notlar[i]
-			sinav_puani = notlar[i+1]
-			print(f" - {sinav_adi}: {sinav_puani}")
+	return courses_dict
 
-	return dersler
+# Check for any updates in grades
+def check_for_updates(driver, old_courses_dict):
+	message = ""
+	status = False
+
+	# Refresh the page to fetch new data
+	new_cources_dict = get_info(driver)
+	time.sleep(2)
+
+	# Compare old and new grades
+	for course in new_cources_dict:
+		old = old_courses_dict.get(course, [])
+		new = new_cources_dict[course]
+		new_grades_for_this_course = []
+
+		for sinav_turu, sinav_notu in zip(new[::2], new[1::2]):
+			if sinav_turu not in old and sinav_turu in ["Vize 1", "Final 1", "Vize 2", "Kısa Sınav 1", "Proje 1"]:
+				if sinav_notu.strip() != "":
+					new_grades_for_this_course.append(f"- {sinav_turu}: {sinav_notu}")
+					old.append(sinav_turu)
+					status = True
+		if new_grades_for_this_course:
+			message += f"{course}\n ----------------------------\n"
+			message += "\n".join(new_grades_for_this_course)
+			message += "\n\n"
+
+	return message, status, old_courses_dict

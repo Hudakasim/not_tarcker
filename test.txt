@@ -1,0 +1,7 @@
+	for ders, notlar in dersler.items():
+		print(f"\n📘 {ders}")
+		i = 0
+		for i in range(0, len(notlar), 2):
+			sinav_adi = notlar[i]
+			sinav_puani = notlar[i+1]
+			print(f" - {sinav_adi}: {sinav_puani}")
